@@ -1,0 +1,15 @@
+
+dex-lock implement a distributed exclusive lock management
+service using posix shell and ssh.
+it's porpuse it to let client get a lock network wide
+and be sure that only one client at a time can hold the lock. 
+
+the state directory is used on server side and contains
+lock informations
+
+the temp directory is used client side and contains
+timeouts and lock informations
+
+utils contains some useful script for better portability
+
+conf contains the configuration of lock servers
