@@ -1,0 +1,37 @@
+#!/bin/dash
+
+#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
+#Distributed under the terms of a MIT license.
+
+# input: lock_name timeout timeout2
+
+export LANG=C
+export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
+-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
+-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
+
+cd ./${0%/*}
+
+lname=${1:-default}
+timeout=${2:-30}
+timeout2=${3:-0}
+hostname=$(hostname)
+hostname=${hostname%%.*}
+
+read lock_servers < conf/lock_servers
+echo $hostname > temp/hostname
+echo "-invalid-" > temp/${lname}_holder
+echo $((timeout+timeout2))  > temp/${lname}_timeout
+echo 0  > temp/${lname}_term
+echo 0  > temp/${lname}_value
+
+i=0
+for h in $lock_servers ; do
+   i=$(($i+1))
+done
+majority=$(($i/2+1))
+if [ "$majority" -lt "3" ] ; then
+   echo warning. you are using less than 3 lock servers.
+   echo this can easily end in a stale split brain scenario.
+fi
+echo $majority > temp/majority

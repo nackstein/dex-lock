@@ -1,0 +1,145 @@
+#!/bin/dash
+
+#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
+#Distributed under the terms of a MIT license.
+
+# input: lock_name timeout timeout2 step
+# output: exit code 0 for success or 1 for failure
+
+export LANG=C
+export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
+-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
+-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
+
+cd ./${0%/*}
+
+lname=${1:-default}
+timeout=${2:-30}
+timeout2=${3:-30}
+step=${4:-1}
+
+read lock_servers < conf/lock_servers
+read rpath        < conf/remote_path
+read counter  < temp/${lname}_timeout
+read holder   < temp/${lname}_holder
+read term     < temp/${lname}_term
+read value    < temp/${lname}_value
+read hostname < temp/hostname
+read majority < temp/majority
+
+counter=$((counter-step))
+
+log () { [ -n "$verbose" ] && echo $@ >&2 ; }
+
+#
+# if holder send keepalive
+#
+if [ "$holder" = "$hostname" ] ; then
+   value=$((value+1))
+   for h in $lock_servers ; do
+      [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
+      ssh $sshopt $h cd $rpath \; internals/increase-value $hostname $lname $term $value \
+         > temp/${h}_${lname}_output < /dev/null &
+   done
+
+   wait
+
+   positives=0
+   for h in $lock_servers ; do
+      read success h_holder h_term h_value < temp/${h}_${lname}_output
+      if [ "$success" = "true" ] ; then
+         positives=$((positives+1))
+      elif [ "$success" = "false" ] ; then
+         echo $h_holder > temp/${lname}_holder
+         echo $h_term   > temp/${lname}_term
+         echo $h_value  > temp/${lname}_value
+         log fail. another holder got lock
+         exit 1
+      fi
+   done
+
+   if [ "$positives" -ge "$majority" ] ; then
+      counter=$timeout
+      echo $value > temp/${lname}_value
+      log good. got lock
+   else
+      log wait. lock timing out...
+   fi
+
+   echo $counter > temp/${lname}_timeout
+   if [ "$counter" -le 0 ] ; then 
+      echo "-invalid-" > temp/${lname}_holder
+      log fail. lock timed out
+      exit 1
+   fi 
+   exit 0
+fi
+
+#
+# not holder.... check if holder is alive
+# 
+invalids=0
+for h in $lock_servers ; do
+   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
+   ssh $sshopt $h cd $rpath \; internals/check-value $lname $value \
+      > temp/${h}_${lname}_output < /dev/null
+   read success h_holder h_term h_value < temp/${h}_${lname}_output
+   if [ "$success" = "true" ] ; then
+      counter=$((timeout+timeout2))
+      if [ "$h_holder" != "$hostname" ] ; then
+         echo $h_holder > temp/${lname}_holder
+      fi
+      echo $h_term   > temp/${lname}_term
+      echo $h_value  > temp/${lname}_value
+      break
+   fi
+   if [ "$h_holder" = "-invalid-" ] ; then
+      invalids=$((invalids+1))
+   fi
+done
+
+if [ "$invalids" -ge "$majority" ] ; then
+   counter=0
+fi
+
+echo $counter > temp/${lname}_timeout
+if [ "$counter" -gt 0 ] ; then 
+   log wait. lock busy
+   exit 1
+fi 
+
+#
+# lock timed out... start new lock holder election
+#
+log wait. trying to start a new term
+term=$((term+1))
+echo $term > temp/${lname}_term
+
+#sleep between 0 and 0.999600*step seconds. hex trick is more portable.
+delay=0.$((0x$(echo $(od -An -N1 -tx1 /dev/urandom))*3920*step))
+#where sleep doesn't support decimal fallback to perl sleep.
+sleep $delay 2> /dev/null || utils/sleep.pl $delay
+
+for h in $lock_servers ; do 
+   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
+   ssh $sshopt $h cd $rpath \; internals/request-lock $hostname $lname $term $value \
+      > temp/${h}_${lname}_output < /dev/null &
+done
+
+wait
+
+positives=0
+for h in $lock_servers ; do
+   read success h_holder h_term h_value < temp/${h}_${lname}_output
+   [ "$success" = "true" ] && positives=$((positives+1))
+done
+
+if [ "$positives" -ge "$majority" ] ; then
+   echo $hostname > temp/${lname}_holder
+   #now i have just one change to commit an update!
+else
+   #give the new holder some time of advantage
+   echo $((step+1)) > temp/${lname}_timeout
+fi
+
+exit 1

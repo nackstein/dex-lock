@@ -1,0 +1,27 @@
+#!/bin/dash
+
+#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
+#Distributed under the terms of a MIT license.
+
+# input:  lock_name value
+# return: success holder term value
+
+export LANG=C
+. internals/activity-lock-sh
+
+lname=$1
+value=$2
+success=false
+
+if [ -f state/${lname} ] ; then
+   read s_holder s_term s_value < state/${lname}
+else
+   s_holder="-invalid-"
+   s_term=0
+   s_value=0
+fi
+
+[ "$value" -lt "$s_value" ] && success=true
+echo $success $s_holder $s_term $s_value
+
+quit 0
