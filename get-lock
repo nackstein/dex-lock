@@ -11,7 +11,7 @@ export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
 -o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
-cd ./${0%/*}
+cd ${0%/*}
 
 lname=${1:-default}
 timeout=${2:-30}
@@ -37,9 +37,9 @@ log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 if [ "$holder" = "$hostname" ] ; then
    value=$((value+1))
    for h in $lock_servers ; do
-      [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
-      ssh $sshopt $h cd $rpath \; internals/increase-value $hostname $lname $term $value \
-         > temp/${h}_${lname}_output < /dev/null &
+      [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h
+      ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/increase-value " \
+                     "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
    done
 
    wait
@@ -80,9 +80,9 @@ fi
 # 
 invalids=0
 for h in $lock_servers ; do
-   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
-   ssh $sshopt $h cd $rpath \; internals/check-value $lname $value \
-      > temp/${h}_${lname}_output < /dev/null
+   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null
+   ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-sh internals/check-value " \
+                  "$lname $value" > temp/${h}_${lname}_output < /dev/null
    read success h_holder h_term h_value < temp/${h}_${lname}_output
    if [ "$success" = "true" ] ; then
       counter=$((timeout+timeout2))
@@ -122,8 +122,8 @@ sleep $delay 2> /dev/null || utils/sleep.pl $delay
 
 for h in $lock_servers ; do 
    [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
-   ssh $sshopt $h cd $rpath \; internals/request-lock $hostname $lname $term $value \
-      > temp/${h}_${lname}_output < /dev/null &
+   ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/request-lock " \
+                  "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
 done
 
 wait

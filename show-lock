@@ -10,7 +10,7 @@ export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
 -o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
-cd ./${0%/*}
+cd ${0%/*}
 
 lname=${1:-default}
 

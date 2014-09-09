@@ -6,9 +6,6 @@
 # input:  holder lock_name term value [ release ]
 # return: success holder term value
 
-export LANG=C
-. internals/activity-lock-ex
-
 holder=$1
 lname=$2
 term=$3
@@ -39,5 +36,3 @@ if [ "$term" -eq "$s_term" -a "$value" -eq "$s_value" -a "$holder" = "$s_holder"
 fi
 
 echo $success $s_holder $s_term $s_value
-
-quit 0

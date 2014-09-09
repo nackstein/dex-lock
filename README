@@ -1,8 +1,8 @@
 
-dex-lock implement a distributed exclusive lock management
-service using posix shell and ssh.
+dex-lock implement a distributed lock management system.
 it's porpuse it to let client get a lock network wide
-and be sure that only one client at a time can hold the lock. 
+and be sure that only one client at a time can held 
+the lock. 
 
 the state directory is used on server side and contains
 lock informations
@@ -12,4 +12,4 @@ timeouts and lock informations
 
 utils contains some useful script for better portability
 
-conf contains the configuration of lock servers
+conf contains the configuration (the list) of lock servers
