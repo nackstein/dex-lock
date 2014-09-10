@@ -19,5 +19,4 @@ else
 fi
 
 [ "$value" -lt "$s_value" ] && success=true
-#subshell is needed to avoid blocking this script if stdout get closed
 echo $success $s_holder $s_term $s_value

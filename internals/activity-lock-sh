@@ -18,9 +18,14 @@ until
    mv temp/activity_lockdir_un temp/activity_lockdir_sh > /dev/null 2>&1 < /dev/null
    ( echo "" > temp/activity_lockdir_sh/$$ ) > /dev/null 2>&1 < /dev/null
 do
+   if [ -n "$lock_timeout" ] ; then
+      lock_timeout=$(($lock_timeout-1))
+      [ "$lock_timeout" -lt 0 ] && exit 1
+   fi
+
    #on HP-UX decimal seconds is not supported. use the perl implementation
    sleep 0.1 2> /dev/null || utils/sleep.pl 0.1
 done
 
-$@
+"$@"
 quit $?
