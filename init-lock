@@ -3,7 +3,7 @@
 #Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
 #Distributed under the terms of a MIT license.
 
-# input: lock_name timeout timeout2
+# parameters: [ lock_name  [ timeout  [ timeout2 ] ] ]
 
 cd ${0%/*}
 

@@ -3,7 +3,7 @@
 #Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
 #Distributed under the terms of a MIT license.
 
-# input: lock_name remote_path
+# parameters: [ lock_name ]
 
 export LANG=C
 export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
