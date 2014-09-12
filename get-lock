@@ -7,9 +7,6 @@
 # exit code:  { 0 | 1 } ; 0 for success and 1 for failure
 
 export LANG=C
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
 cd ${0%/*}
 
@@ -26,6 +23,10 @@ read term     < temp/${lname}_term
 read value    < temp/${lname}_value
 read hostname < temp/hostname
 read majority < temp/majority
+read control_master < temp/control_master
+export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
+-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
+-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
 counter=$((counter-step))
 
@@ -37,7 +38,7 @@ log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 if [ "$holder" = "$hostname" ] ; then
    value=$((value+1))
    for h in $lock_servers ; do
-      [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h
+      [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h
       ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/increase-value " \
                      "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
    done
@@ -80,7 +81,7 @@ fi
 # 
 invalids=0
 for h in $lock_servers ; do
-   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null
+   [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-sh internals/check-value " \
                   "$lname $value" > temp/${h}_${lname}_output < /dev/null
    read success h_holder h_term h_value < temp/${h}_${lname}_output
@@ -121,7 +122,7 @@ delay=0.$((0x$(echo $(od -An -N1 -tx1 /dev/urandom))*3920*step))
 sleep $delay 2> /dev/null || utils/sleep.pl $delay
 
 for h in $lock_servers ; do 
-   [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
+   [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/request-lock " \
                   "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
 done

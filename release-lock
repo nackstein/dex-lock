@@ -6,9 +6,6 @@
 # parameters: [ lock_name [ timeout [ timeout2 ] ] ]
 
 export LANG=C
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
 cd ${0%/*}
 
@@ -22,6 +19,10 @@ read holder   < temp/${lname}_holder
 read term     < temp/${lname}_term
 read value    < temp/${lname}_value
 read hostname < temp/hostname
+read control_master < temp/control_master
+export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
+-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
+-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 

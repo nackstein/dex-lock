@@ -6,9 +6,6 @@
 # parameters: [ lock_name ]
 
 export LANG=C
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
 
 cd ${0%/*}
 
@@ -17,27 +14,36 @@ lname=${1:-default}
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
 
+read control_master < temp/control_master
+export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
+-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
+-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
+
 if [ -f temp/${lname}_timeout ] ; then
    read counter  < temp/${lname}_timeout
+   read holder   < temp/${lname}_holder
+   read term     < temp/${lname}_term
+   read value    < temp/${lname}_value
+   read hostname < temp/hostname
+   read majority < temp/majority
+
+   echo local term values for $lname:
+   echo holder:  $holder
+   echo term:    $term
+   echo value:   $value
+   echo counter: $counter
+
 else
    echo lock $lname not initialized
-   exit 1
 fi
-read holder   < temp/${lname}_holder
-read term     < temp/${lname}_term
-read value    < temp/${lname}_value
-read hostname < temp/hostname
-read majority < temp/majority
-
-echo local term values for $lname:
-echo holder:  $holder
-echo term:    $term
-echo value:   $value
-echo counter: $counter
 
 echo
 echo remote state values for $lname:
 echo lock_server holder term value
 for h in $lock_servers ; do
-   echo $h: $(ssh $sshopt $h "cd $rpath ; [ -f state/$lname ] && cat state/$lname")
+   echo $h: $(ssh $sshopt $h "cd $rpath ; " \
+                             "[ -f state/$lname ] && " \
+                             "cat state/$lname || " \
+                             "echo lock file not found")
 done
+echo

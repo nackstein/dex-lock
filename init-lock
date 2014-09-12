@@ -20,11 +20,21 @@ echo $((timeout+timeout2))  > temp/${lname}_timeout
 echo 0  > temp/${lname}_term
 echo 0  > temp/${lname}_value
 
+case $(uname) in
+ CYGWIN_NT*)
+   echo no > temp/control_master
+ ;;
+
+ *)
+   echo auto > temp/control_master
+ ;;
+esac
+
 i=0
 for h in $lock_servers ; do
-   i=$(($i+1))
+   i=$((i+1))
 done
-majority=$(($i/2+1))
+majority=$((i/2+1))
 if [ "$majority" -lt "3" ] ; then
    echo warning. you are using less than 3 lock servers.
    echo this can easily end in a stale split brain scenario.
