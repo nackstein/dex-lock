@@ -44,5 +44,5 @@ echo "-invalid-" > temp/${lname}_holder
 echo $((timeout+timeout2))  > temp/${lname}_timeout
 echo "0" > temp/${lname}_term
 echo "0" > temp/${lname}_value
-pkill -x -f "ssh -MNf -o ControlPath=~/.ssh/dex-lock-socket-%h"
+utils/pkill -f "^ssh -MNf -o ControlPath=~/.ssh/dex-lock-socket-%h"
 log good. lock released
