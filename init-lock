@@ -25,6 +25,10 @@ case $(uname) in
    echo no > temp/control_master
  ;;
 
+ VMkernel)
+   echo no > temp/control_master
+ ;;
+
  *)
    echo auto > temp/control_master
  ;;

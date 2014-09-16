@@ -24,7 +24,8 @@ do
    fi
 
    #on HP-UX decimal seconds is not supported. use the perl implementation
-   sleep 0.1 2> /dev/null || utils/sleep.pl 0.1
+   #otherwise this ends in a busy loop (OpenWRT)
+   sleep 0.1 2> /dev/null || utils/sleep.pl 0.1 2> /dev/null
 done
 
 "$@"
