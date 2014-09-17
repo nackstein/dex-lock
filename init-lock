@@ -10,37 +10,53 @@ cd ${0%/*}
 lname=${1:-default}
 timeout=${2:-30}
 timeout2=${3:-0}
+
+read lock_servers < conf/lock_servers
+echo $((timeout+timeout2))  > temp/${lname}_counter
+echo "-invalid-" 0 0 > temp/${lname}_htv
+
 hostname=$(hostname)
 hostname=${hostname%%.*}
 
-read lock_servers < conf/lock_servers
-echo $hostname > temp/hostname
-echo "-invalid-" > temp/${lname}_holder
-echo $((timeout+timeout2))  > temp/${lname}_timeout
-echo 0  > temp/${lname}_term
-echo 0  > temp/${lname}_value
-
 case $(uname) in
- CYGWIN_NT*)
-   echo no > temp/control_master
+ CYGWIN_NT*|VMkernel)
+   control_master=no
+   echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=no" \
+        "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
+        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
  ;;
-
- VMkernel)
-   echo no > temp/control_master
+ Linux)
+   if ssh 2>&1 | grep -q Dropbear ; then
+      control_master=no
+      read tcp_syn_retries < /proc/sys/net/ipv4/tcp_syn_retries
+      if [ "$tcp_syn_retries" -gt 1 ] ; then
+         echo "warning. Dropbear ssh do not support connection timeout parameters."
+         echo "You should set a very low connection timeout in kernel configuration."
+         echo "as root you can execute: echo 1 > /proc/sys/net/ipv4/tcp_syn_retries"
+         echo
+      fi
+      echo "-T -y -K 2 -I 6" > temp/sshopt
+   else
+      control_master=auto
+      echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto" \
+           "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
+           "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
+   fi
  ;;
-
  *)
-   echo auto > temp/control_master
+   control_master=auto
+   echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto" \
+        "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
+        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
  ;;
 esac
 
-i=0
-for h in $lock_servers ; do
-   i=$((i+1))
-done
+i=0; for h in $lock_servers ; do i=$((i+1)); done
 majority=$((i/2+1))
 if [ "$majority" -lt "3" ] ; then
-   echo warning. you are using less than 3 lock servers.
-   echo this can easily end in a stale split brain scenario.
+   echo "warning. you are using less than 3 lock servers."
+   echo "this can easily end in a stale split brain scenario."
+   echo
 fi
-echo $majority > temp/majority
+
+echo $hostname:$majority:$control_master > temp/params

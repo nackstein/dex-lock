@@ -17,20 +17,14 @@ step=${4:-1}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
-read counter  < temp/${lname}_timeout
-read holder   < temp/${lname}_holder
-read term     < temp/${lname}_term
-read value    < temp/${lname}_value
-read hostname < temp/hostname
-read majority < temp/majority
-read control_master < temp/control_master
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
-
-counter=$((counter-step))
+read sshopt       < temp/sshopt
+read counter      < temp/${lname}_counter
+read holder term value < temp/${lname}_htv
+IFS=: read hostname majority control_master < temp/params
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
+
+counter=$((counter-step))
 
 #
 # if holder send keepalive
@@ -42,7 +36,6 @@ if [ "$holder" = "$hostname" ] ; then
       ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/increase-value " \
                      "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
    done
-
    wait
 
    positives=0
@@ -51,9 +44,7 @@ if [ "$holder" = "$hostname" ] ; then
       if [ "$success" = "true" ] ; then
          positives=$((positives+1))
       elif [ "$success" = "false" ] ; then
-         echo $h_holder > temp/${lname}_holder
-         echo $h_term   > temp/${lname}_term
-         echo $h_value  > temp/${lname}_value
+         echo $h_holder $h_term $h_value > temp/${lname}_htv
          log fail. another holder got lock
          exit 1
       fi
@@ -61,15 +52,15 @@ if [ "$holder" = "$hostname" ] ; then
 
    if [ "$positives" -ge "$majority" ] ; then
       counter=$timeout
-      echo $value > temp/${lname}_value
+      echo $holder $term $value > temp/${lname}_htv
       log good. got lock
    else
       log wait. lock timing out...
    fi
 
-   echo $counter > temp/${lname}_timeout
+   echo $counter > temp/${lname}_counter
    if [ "$counter" -le 0 ] ; then 
-      echo "-invalid-" > temp/${lname}_holder
+      echo "-invalid-" $term $((value-1)) > temp/${lname}_htv
       log fail. lock timed out
       exit 1
    fi 
@@ -85,25 +76,28 @@ for h in $lock_servers ; do
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-sh internals/check-value " \
                   "$lname $value" > temp/${h}_${lname}_output < /dev/null
    read success h_holder h_term h_value < temp/${h}_${lname}_output
+
    if [ "$success" = "true" ] ; then
       counter=$((timeout+timeout2))
-      if [ "$h_holder" != "$hostname" ] ; then
-         echo $h_holder > temp/${lname}_holder
+      holder="$h_holder"; term="$h_term"; value="$h_value"
+      #following case can happen if after a failure we didn't release the lock
+      if [ "$h_holder" = "$hostname" ] ; then
+         counter=0 ; holder="-invalid-"
       fi
-      echo $h_term   > temp/${lname}_term
-      echo $h_value  > temp/${lname}_value
+      echo $holder $term $value > temp/${lname}_htv
       break
    fi
+
    if [ "$h_holder" = "-invalid-" ] ; then
       invalids=$((invalids+1))
    fi
 done
 
 if [ "$invalids" -ge "$majority" ] ; then
-   counter=0
+   counter=0 ; holder="-invalid-"
 fi
 
-echo $counter > temp/${lname}_timeout
+echo $counter > temp/${lname}_counter
 if [ "$counter" -gt 0 ] ; then 
    log wait. lock busy
    exit 1
@@ -114,7 +108,7 @@ fi
 #
 log wait. trying to start a new term
 term=$((term+1))
-echo $term > temp/${lname}_term
+echo $holder $term $value > temp/${lname}_htv
 
 #random sleep between 0 and 0.999600*step seconds if subsecond sleep is supported.
 #otherwise sleep from 0 to step seconds with integer seconds.
@@ -126,7 +120,6 @@ for h in $lock_servers ; do
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/request-lock " \
                   "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
 done
-
 wait
 
 positives=0
@@ -136,11 +129,11 @@ for h in $lock_servers ; do
 done
 
 if [ "$positives" -ge "$majority" ] ; then
-   echo $hostname > temp/${lname}_holder
+   echo $hostname $term $value > temp/${lname}_htv
    #now i have just one change to commit an update!
 else
    #give the new holder some time of advantage
-   echo $((step+1)) > temp/${lname}_timeout
+   echo $((step+1)) > temp/${lname}_counter
 fi
 
 exit 1

@@ -14,28 +14,21 @@ lname=${1:-default}
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
 
-read control_master < temp/control_master
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
-
-if [ -f temp/${lname}_timeout ] ; then
-   read counter  < temp/${lname}_timeout
-   read holder   < temp/${lname}_holder
-   read term     < temp/${lname}_term
-   read value    < temp/${lname}_value
-   read hostname < temp/hostname
-   read majority < temp/majority
+if [ -f temp/${lname}_counter ] ; then
+   read counter  < temp/${lname}_counter
+   read holder term value < temp/${lname}_htv
 
    echo local term values for $lname:
    echo holder:  $holder
    echo term:    $term
    echo value:   $value
    echo counter: $counter
-
 else
    echo lock $lname not initialized
 fi
+
+IFS=: read hostname majority control_master < temp/params
+read sshopt < temp/sshopt
 
 echo
 echo remote state values for $lname:

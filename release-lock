@@ -15,14 +15,9 @@ timeout2=${3:-0}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
-read holder   < temp/${lname}_holder
-read term     < temp/${lname}_term
-read value    < temp/${lname}_value
-read hostname < temp/hostname
-read control_master < temp/control_master
-export sshopt="-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=$control_master \
--o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3 \
--o PasswordAuthentication=no -o StrictHostKeyChecking=no -q"
+read holder term value < temp/${lname}_htv
+IFS=: read hostname majority control_master < temp/params
+read sshopt < temp/sshopt
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 
@@ -40,9 +35,7 @@ if [ "$holder" = "$hostname" ] ; then
    wait
 fi
 
-echo "-invalid-" > temp/${lname}_holder
-echo $((timeout+timeout2))  > temp/${lname}_timeout
-echo "0" > temp/${lname}_term
-echo "0" > temp/${lname}_value
-utils/pkill -f "^ssh -MNf -o ControlPath=~/.ssh/dex-lock-socket-%h"
+echo $((timeout+timeout2))  > temp/${lname}_counter
+echo "-invalid-" 0 0 > temp/${lname}_htv
+[ "$control_master" = "auto" ] && utils/pkill -f "^ssh -MNf -o ControlPath=~/.ssh/dex-lock-socket-%h"
 log good. lock released
