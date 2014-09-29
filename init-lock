@@ -1,4 +1,4 @@
-#!/bin/dash
+#!/bin/sh
 
 #Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
 #Distributed under the terms of a MIT license.
@@ -24,24 +24,6 @@ case $(uname) in
    echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=no" \
         "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
         "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
- ;;
- Linux)
-   if ssh 2>&1 | grep -q Dropbear ; then
-      control_master=no
-      read tcp_syn_retries < /proc/sys/net/ipv4/tcp_syn_retries
-      if [ "$tcp_syn_retries" -gt 1 ] ; then
-         echo "warning. Dropbear ssh do not support connection timeout parameters."
-         echo "You should set a very low connection timeout in kernel configuration."
-         echo "as root you can execute: echo 1 > /proc/sys/net/ipv4/tcp_syn_retries"
-         echo
-      fi
-      echo "-T -y -K 2 -I 6" > temp/sshopt
-   else
-      control_master=auto
-      echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto" \
-           "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
-           "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
-   fi
  ;;
  *)
    control_master=auto

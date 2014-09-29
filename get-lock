@@ -1,4 +1,4 @@
-#!/bin/dash
+#!/bin/sh
 
 #Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
 #Distributed under the terms of a MIT license.
@@ -12,7 +12,7 @@ cd ${0%/*}
 
 lname=${1:-default}
 timeout=${2:-30}
-timeout2=${3:-30}
+timeout2=${3:-0}
 step=${4:-1}
 
 read lock_servers < conf/lock_servers
