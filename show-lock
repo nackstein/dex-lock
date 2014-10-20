@@ -16,13 +16,14 @@ read rpath        < conf/remote_path
 
 if [ -f temp/${lname}_counter ] ; then
    read counter  < temp/${lname}_counter
-   read holder term value < temp/${lname}_htv
+   read holder term value previous < temp/${lname}_htvp
 
    echo local term values for $lname:
    echo holder:  $holder
    echo term:    $term
    echo value:   $value
    echo counter: $counter
+   echo previous: $previous
 else
    echo lock $lname not initialized
 fi

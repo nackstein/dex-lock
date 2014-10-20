@@ -19,7 +19,7 @@ read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
 read sshopt       < temp/sshopt
 read counter      < temp/${lname}_counter
-read holder term value < temp/${lname}_htv
+read holder term value previous < temp/${lname}_htvp
 IFS=: read hostname majority control_master < temp/params
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
@@ -44,7 +44,7 @@ if [ "$holder" = "$hostname" ] ; then
       if [ "$success" = "true" ] ; then
          positives=$((positives+1))
       elif [ "$success" = "false" ] ; then
-         echo $h_holder $h_term $h_value > temp/${lname}_htv
+         echo $h_holder $h_term $h_value $hostname > temp/${lname}_htvp
          log fail. another holder got lock
          exit 1
       fi
@@ -52,7 +52,7 @@ if [ "$holder" = "$hostname" ] ; then
 
    if [ "$positives" -ge "$majority" ] ; then
       counter=$timeout
-      echo $holder $term $value > temp/${lname}_htv
+      echo $holder $term $value $previous > temp/${lname}_htvp
       log good. got lock
    else
       log wait. lock timing out...
@@ -60,7 +60,7 @@ if [ "$holder" = "$hostname" ] ; then
 
    echo $counter > temp/${lname}_counter
    if [ "$counter" -le 0 ] ; then 
-      echo "-invalid-" $term $((value-1)) > temp/${lname}_htv
+      echo "-invalid-" $term $((value-1)) $hostname > temp/${lname}_htvp
       log fail. lock timed out
       exit 1
    fi 
@@ -84,7 +84,7 @@ for h in $lock_servers ; do
       if [ "$h_holder" = "$hostname" ] ; then
          counter=0 ; holder="-invalid-"
       fi
-      echo $holder $term $value > temp/${lname}_htv
+      echo $holder $term $value $holder > temp/${lname}_htvp
       break
    fi
 
@@ -108,10 +108,10 @@ fi
 #
 log wait. trying to start a new term
 term=$((term+1))
-echo $holder $term $value > temp/${lname}_htv
+echo $holder $term $value $previous > temp/${lname}_htvp
 
 #random sleep between 0 and 0.999600*step seconds if subsecond sleep is supported.
-#otherwise sleep from 0 to step seconds with integer seconds.
+#otherwise sleep from 0 to step-1 seconds with integer seconds.
 delay=$((3920*step*0x$(echo $({ od -An -N1 -tx1 /dev/urandom  || hexdump -e '"%02x\n"' -n 1 /dev/urandom; } 2>/dev/null))))
 { sleep 0.$delay || utils/sleep.pl 0.$delay || sleep $((delay/3920/step%step)) ; } 2>/dev/null
 
@@ -129,7 +129,7 @@ for h in $lock_servers ; do
 done
 
 if [ "$positives" -ge "$majority" ] ; then
-   echo $hostname $term $value > temp/${lname}_htv
+   echo $hostname $term $value $previous > temp/${lname}_htvp
    #now i have just one change to commit an update!
 else
    #give the new holder some time of advantage

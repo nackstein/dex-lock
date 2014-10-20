@@ -13,23 +13,24 @@ timeout2=${3:-0}
 
 read lock_servers < conf/lock_servers
 echo $((timeout+timeout2))  > temp/${lname}_counter
-echo "-invalid-" 0 0 > temp/${lname}_htv
+echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htvp
 
 hostname=$(hostname)
 hostname=${hostname%%.*}
 
+[ -n "$verbose" ] || printf "-q " >> temp/sshopt
 case $(uname) in
  CYGWIN_NT*|VMkernel)
    control_master=no
    echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=no" \
         "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
-        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
+        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -T" > temp/sshopt
  ;;
  *)
    control_master=auto
    echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto" \
         "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
-        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -q -T" > temp/sshopt
+        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -T" > temp/sshopt
  ;;
 esac
 
