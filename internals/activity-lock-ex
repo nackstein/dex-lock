@@ -19,7 +19,6 @@ until mv temp/activity_lockdir_un temp/activity_lockdir_ex_$$ > /dev/null 2>&1 <
    fi
 
    #on HP-UX decimal seconds is not supported. use the perl implementation
-   #otherwise this ends in a busy loop (OpenWRT)
    sleep 0.1 2> /dev/null || utils/sleep.pl 0.1 2> /dev/null
 done
 

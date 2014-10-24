@@ -18,22 +18,6 @@ echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htvp
 hostname=$(hostname)
 hostname=${hostname%%.*}
 
-[ -n "$verbose" ] || printf "-q " >> temp/sshopt
-case $(uname) in
- CYGWIN_NT*|VMkernel)
-   control_master=no
-   echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=no" \
-        "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
-        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -T" > temp/sshopt
- ;;
- *)
-   control_master=auto
-   echo "-o ControlPath=~/.ssh/dex-lock-socket-%h -o ControlMaster=auto" \
-        "-o ConnectTimeout=1 -o ServerAliveInterval=2 -o ServerAliveCountMax=3" \
-        "-o PasswordAuthentication=no -o StrictHostKeyChecking=no -T" > temp/sshopt
- ;;
-esac
-
 i=0; for h in $lock_servers ; do i=$((i+1)); done
 majority=$((i/2+1))
 if [ "$majority" -lt "3" ] ; then
@@ -42,4 +26,4 @@ if [ "$majority" -lt "3" ] ; then
    echo
 fi
 
-echo $hostname:$majority:$control_master > temp/params
+echo $hostname:$majority:$control_master > temp/${lname}_params

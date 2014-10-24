@@ -13,6 +13,7 @@ lname=${1:-default}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
+read sshopt       < conf/sshopt
 
 if [ -f temp/${lname}_counter ] ; then
    read counter  < temp/${lname}_counter
@@ -28,8 +29,7 @@ else
    echo lock $lname not initialized
 fi
 
-IFS=: read hostname majority control_master < temp/params
-read sshopt < temp/sshopt
+IFS=: read hostname majority control_master < temp/${lname}_params
 
 echo
 echo remote state values for $lname:

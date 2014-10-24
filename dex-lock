@@ -17,12 +17,13 @@ step=${4:-1}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
-read sshopt       < temp/sshopt
+read sshopt       < conf/sshopt
 read counter      < temp/${lname}_counter
 read holder term value previous < temp/${lname}_htvp
-IFS=: read hostname majority control_master < temp/params
+IFS=: read hostname majority control_master < temp/${lname}_params
 
-log () { [ -n "$verbose" ] && echo $@ >&2 ; }
+[ -z "$verbose" ] && exec 2> /dev/null
+log () { echo $@ >&2 ; }
 
 counter=$((counter-step))
 
@@ -32,9 +33,8 @@ counter=$((counter-step))
 if [ "$holder" = "$hostname" ] ; then
    value=$((value+1))
    for h in $lock_servers ; do
-      [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h
       ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/increase-value " \
-                     "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
+          "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
    done
    wait
 
@@ -70,14 +70,19 @@ fi
 #
 # not holder.... check if holder is alive
 # 
-invalids=0
 for h in $lock_servers ; do
-   [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-sh internals/check-value " \
-                  "$lname $value" > temp/${h}_${lname}_output < /dev/null
+       "$lname $value" > temp/${h}_${lname}_output < /dev/null &
+done
+wait
+
+invalids=0
+reachable=0
+for h in $lock_servers ; do
    read success h_holder h_term h_value < temp/${h}_${lname}_output
 
    if [ "$success" = "true" ] ; then
+      reachable=$((reachable+1))
       counter=$((timeout+timeout2))
       holder="$h_holder"; term="$h_term"; value="$h_value"
       #following case can happen if after a failure we didn't release the lock
@@ -85,12 +90,13 @@ for h in $lock_servers ; do
          counter=0 ; holder="-invalid-"
       fi
       echo $holder $term $value $holder > temp/${lname}_htvp
-      break
    fi
 
    if [ "$h_holder" = "-invalid-" ] ; then
       invalids=$((invalids+1))
    fi
+
+   [ "$success" = "false" ] && reachable=$((reachable+1))
 done
 
 if [ "$invalids" -ge "$majority" ] ; then
@@ -103,6 +109,12 @@ if [ "$counter" -gt 0 ] ; then
    exit 1
 fi 
 
+if [ "$reachable" -lt "$majority" ] ; then
+   #skip election since there are too many unreachable lock servers
+   log fail. can\'t reach the majority of lock servers
+   exit 1
+fi
+
 #
 # lock timed out... start new lock holder election
 #
@@ -110,15 +122,13 @@ log wait. trying to start a new term
 term=$((term+1))
 echo $holder $term $value $previous > temp/${lname}_htvp
 
-#random sleep between 0 and 0.999600*step seconds if subsecond sleep is supported.
-#otherwise sleep from 0 to step-1 seconds with integer seconds.
-delay=$((3920*step*0x$(echo $({ od -An -N1 -tx1 /dev/urandom  || hexdump -e '"%02x\n"' -n 1 /dev/urandom; } 2>/dev/null))))
-{ sleep 0.$delay || utils/sleep.pl 0.$delay || sleep $((delay/3920/step%step)) ; } 2>/dev/null
+#random sleep between 0 and 0.999600*step seconds.
+delay=$((3920*step*0x$(echo $({ od -An -N1 -tx1 /dev/urandom  || hexdump -e '"%02x\n"' -n 1 /dev/urandom; }))))
+{ sleep 0.$delay || utils/sleep.pl 0.$delay; }
 
 for h in $lock_servers ; do 
-   [ "$control_master" = "no" ] || [ -S ~/.ssh/dex-lock-socket-$h ] || ssh -MNf $sshopt $h > /dev/null 2>&1
    ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/request-lock " \
-                  "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
+       "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
 done
 wait
 

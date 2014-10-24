@@ -15,9 +15,9 @@ timeout2=${3:-0}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
+read sshopt       < conf/sshopt
 read holder term value previous < temp/${lname}_htvp
-IFS=: read hostname majority control_master < temp/params
-read sshopt < temp/sshopt
+IFS=: read hostname majority control_master < temp/${lname}_params
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 
@@ -37,5 +37,4 @@ fi
 
 echo $((timeout+timeout2))  > temp/${lname}_counter
 echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htv
-[ "$control_master" = "auto" ] && utils/pkill -f "^ssh -MNf -o ControlPath=~/.ssh/dex-lock-socket-%h"
 log good. lock released
