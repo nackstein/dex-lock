@@ -1,10 +1,10 @@
 #!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
-#run this script at boot before sshd start. this ensure that
-#in case of crash the activity_lock is unlocked
+#run this script at boot before sshd starts. this ensure that
+#in case of crash the local lockdir_* is unlocked
 
 export LANG=C
 
@@ -12,8 +12,8 @@ cd ${0%/*}
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 
-rm -f temp/activity_lockdir_sh/*
-rmdir temp/activity_lockdir_*
-mkdir temp/activity_lockdir_un
+rm -f temp/lockdir_sh/*
+rmdir temp/lockdir_*
+mkdir temp/lockdir_un
 
 log good. lock server ready.

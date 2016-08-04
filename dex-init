@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
 # parameters: [ lock_name  [ timeout  [ timeout2 ] ] ]
 
@@ -10,20 +10,28 @@ cd ${0%/*}
 lname=${1:-default}
 timeout=${2:-30}
 timeout2=${3:-0}
-
-read lock_servers < conf/lock_servers
-echo $((timeout+timeout2))  > temp/${lname}_counter
-echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htvp
-
 hostname=$(hostname)
 hostname=${hostname%%.*}
 
+read lock_servers < conf/lock_servers
 i=0; for h in $lock_servers ; do i=$((i+1)); done
 majority=$((i/2+1))
-if [ "$majority" -lt "3" ] ; then
-   echo "warning. you are using less than 3 lock servers."
-   echo "this can easily end in a stale split brain scenario."
-   echo
+echo $hostname $majority > temp/${lname}_params
+echo $((timeout+timeout2))  > temp/${lname}_counter
+echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htsp
+
+if [ $i -eq 0 ] ; then
+   echo "$(date) Error: you cannot use dex-lock without lock servers configured."
+   exit 1
 fi
 
-echo $hostname:$majority:$control_master > temp/${lname}_params
+if [ $i -eq 1 ] ; then
+   echo "$(date) Warning: with one not fault tolerant lock server you introduce a single point of failure."
+   exit 0
+fi
+
+if [ $((i%2)) -eq 0 ] ; then
+   echo "$(date) Warning: an even number of lock servers can bear to a split brain event."
+else
+   echo "$(date) Lock initialization done."
+fi

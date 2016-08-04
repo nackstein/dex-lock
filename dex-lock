@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
-# parameters: [ lock_name [ timeout [ timeout2 [ step ] ] ] ]
+# parameters: [ lock_name [ timeout [ timeout2 [ step [ priority ] ] ] ] ]
 # exit code:  { 0 | 1 } ; 0 for success and 1 for failure
 
 export LANG=C
@@ -14,13 +14,14 @@ lname=${1:-default}
 timeout=${2:-30}
 timeout2=${3:-0}
 step=${4:-1}
+priority=${4:-1}
 
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
 read sshopt       < conf/sshopt
 read counter      < temp/${lname}_counter
-read holder term value previous < temp/${lname}_htvp
-IFS=: read hostname majority control_master < temp/${lname}_params
+read holder term seq previous < temp/${lname}_htsp
+read hostname majority < temp/${lname}_params
 
 [ -z "$verbose" ] && exec 2> /dev/null
 log () { echo $@ >&2 ; }
@@ -31,20 +32,20 @@ counter=$((counter-step))
 # if holder send keepalive
 #
 if [ "$holder" = "$hostname" ] ; then
-   value=$((value+1))
+   seq=$((seq+1))
    for h in $lock_servers ; do
-      ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/increase-value " \
-          "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
+      ssh $sshopt $h "cd $rpath ; exec internals/lock-ex internals/increase-seq " \
+          "$hostname $lname $term $seq" > temp/${h}_${lname}_output < /dev/null &
    done
    wait
 
    positives=0
    for h in $lock_servers ; do
-      read success h_holder h_term h_value < temp/${h}_${lname}_output
+      read success h_holder h_term h_seq < temp/${h}_${lname}_output
       if [ "$success" = "true" ] ; then
          positives=$((positives+1))
       elif [ "$success" = "false" ] ; then
-         echo $h_holder $h_term $h_value $hostname > temp/${lname}_htvp
+         echo $h_holder $h_term $h_seq $hostname > temp/${lname}_htsp
          log fail. another holder got lock
          exit 1
       fi
@@ -52,7 +53,7 @@ if [ "$holder" = "$hostname" ] ; then
 
    if [ "$positives" -ge "$majority" ] ; then
       counter=$timeout
-      echo $holder $term $value $previous > temp/${lname}_htvp
+      echo $holder $term $seq $previous > temp/${lname}_htsp
       log good. got lock
    else
       log wait. lock timing out...
@@ -60,7 +61,7 @@ if [ "$holder" = "$hostname" ] ; then
 
    echo $counter > temp/${lname}_counter
    if [ "$counter" -le 0 ] ; then 
-      echo "-invalid-" $term $((value-1)) $hostname > temp/${lname}_htvp
+      echo "-invalid-" $term $((seq-1)) $hostname > temp/${lname}_htsp
       log fail. lock timed out
       exit 1
    fi 
@@ -71,25 +72,25 @@ fi
 # not holder.... check if holder is alive
 # 
 for h in $lock_servers ; do
-   ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-sh internals/check-value " \
-       "$lname $value" > temp/${h}_${lname}_output < /dev/null &
+   ssh $sshopt $h "cd $rpath ; exec internals/lock-sh internals/check-seq " \
+       "$lname $seq" > temp/${h}_${lname}_output < /dev/null &
 done
 wait
 
 invalids=0
 reachable=0
 for h in $lock_servers ; do
-   read success h_holder h_term h_value < temp/${h}_${lname}_output
+   read success h_holder h_term h_seq < temp/${h}_${lname}_output
 
    if [ "$success" = "true" ] ; then
       reachable=$((reachable+1))
       counter=$((timeout+timeout2))
-      holder="$h_holder"; term="$h_term"; value="$h_value"
-      #following case can happen if after a failure we didn't release the lock
+      holder="$h_holder"; term="$h_term"; seq="$h_seq"
+      # following case can happen if after a failure we didn't release the lock
       if [ "$h_holder" = "$hostname" ] ; then
          counter=0 ; holder="-invalid-"
       fi
-      echo $holder $term $value $holder > temp/${lname}_htvp
+      echo $holder $term $seq $holder > temp/${lname}_htsp
    fi
 
    if [ "$h_holder" = "-invalid-" ] ; then
@@ -110,7 +111,7 @@ if [ "$counter" -gt 0 ] ; then
 fi 
 
 if [ "$reachable" -lt "$majority" ] ; then
-   #skip election since there are too many unreachable lock servers
+   # skip election since there are too many unreachable lock servers
    log fail. can\'t reach the majority of lock servers
    exit 1
 fi
@@ -120,29 +121,31 @@ fi
 #
 log wait. trying to start a new term
 term=$((term+1))
-echo $holder $term $value $previous > temp/${lname}_htvp
+echo $holder $term $seq $previous > temp/${lname}_htsp
 
-#random sleep between 0 and 0.999600*step seconds.
-delay=$((3920*step*0x$(echo $({ od -An -N1 -tx1 /dev/urandom  || hexdump -e '"%02x\n"' -n 1 /dev/urandom; }))))
-{ sleep 0.$delay || utils/sleep.pl 0.$delay; }
+if [ "$priority" -lt 0 ] ; then
+   sleep 0.$((3920*step*0x$(echo $(od -An -N1 -tx1 /dev/urandom))))
+else
+   sleep $priority
+fi
 
 for h in $lock_servers ; do 
-   ssh $sshopt $h "cd $rpath ; exec internals/activity-lock-ex internals/request-lock " \
-       "$hostname $lname $term $value" > temp/${h}_${lname}_output < /dev/null &
+   ssh $sshopt $h "cd $rpath ; exec internals/lock-ex internals/request-lock " \
+       "$hostname $lname $term $seq" > temp/${h}_${lname}_output < /dev/null &
 done
 wait
 
 positives=0
 for h in $lock_servers ; do
-   read success h_holder h_term h_value < temp/${h}_${lname}_output
+   read success h_holder h_term h_seq < temp/${h}_${lname}_output
    [ "$success" = "true" ] && positives=$((positives+1))
 done
 
 if [ "$positives" -ge "$majority" ] ; then
-   echo $hostname $term $value $previous > temp/${lname}_htvp
-   #now i have just one change to commit an update!
+   echo $hostname $term $seq $previous > temp/${lname}_htsp
+   # now i have just one change to commit an update!
 else
-   #give the new holder some time of advantage
+   # give the new holder some time of advantage
    echo $((step+1)) > temp/${lname}_counter
 fi
 

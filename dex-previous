@@ -1,12 +1,12 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
 # parameters: [ lock_name ]
 
 cd ${0%/*}
 
 lname=${1:-default}
-read holder term value previous < temp/${lname}_htvp
+read holder term seq previous < temp/${lname}_htsp
 echo $previous

@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
 # parameters: [ lock_name [ timeout [ timeout2 ] ] ]
 
@@ -16,8 +16,8 @@ timeout2=${3:-0}
 read lock_servers < conf/lock_servers
 read rpath        < conf/remote_path
 read sshopt       < conf/sshopt
-read holder term value previous < temp/${lname}_htvp
-IFS=: read hostname majority control_master < temp/${lname}_params
+read holder term seq previous < temp/${lname}_htsp
+read hostname majority  < temp/${lname}_params
 
 log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 
@@ -25,10 +25,10 @@ log () { [ -n "$verbose" ] && echo $@ >&2 ; }
 # if holder send release request
 #
 if [ "$holder" = "$hostname" ] ; then
-   value=$((value+1))
+   seq=$((seq+1))
    release=true
    for h in $lock_servers ; do
-      ssh $sshopt $h cd $rpath \; internals/increase-value $hostname $lname $term $value $release \
+      ssh $sshopt $h cd $rpath \; internals/increase-seq $hostname $lname $term $seq $release \
          > temp/${h}_${lname}_output < /dev/null &
    done
 
@@ -36,5 +36,5 @@ if [ "$holder" = "$hostname" ] ; then
 fi
 
 echo $((timeout+timeout2))  > temp/${lname}_counter
-echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htv
+echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htsp
 log good. lock released

@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
 # parameters: [ lock_name ]
 
@@ -17,23 +17,23 @@ read sshopt       < conf/sshopt
 
 if [ -f temp/${lname}_counter ] ; then
    read counter  < temp/${lname}_counter
-   read holder term value previous < temp/${lname}_htvp
+   read holder term seq previous < temp/${lname}_htsp
 
-   echo local term values for $lname:
+   echo local term seq for $lname:
    echo holder:  $holder
    echo term:    $term
-   echo value:   $value
+   echo seq:     $seq
    echo counter: $counter
    echo previous: $previous
 else
    echo lock $lname not initialized
 fi
 
-IFS=: read hostname majority control_master < temp/${lname}_params
+read hostname majority < temp/${lname}_params
 
 echo
-echo remote state values for $lname:
-echo lock_server holder term value
+echo remote state sequence for $lname:
+echo lock_server holder term seq
 for h in $lock_servers ; do
    echo $h: $(ssh $sshopt $h "cd $rpath ; " \
                              "[ -f state/$lname ] && " \
