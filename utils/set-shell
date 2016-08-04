@@ -1,6 +1,6 @@
 #!/bin/sh
 
-for f in *-lock show-previous internals/* utils/pkill ; do
+for f in dex-* internals/* utils/od ; do
    #some sed don't support -i
    sed -e "s|^#!.*|#!${1:-/bin/sh}|" < $f > temp123
    chmod +x temp123

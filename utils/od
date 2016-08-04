@@ -1,0 +1,5 @@
+#!/bin/dash
+
+# wrapper for platforms that do no provide od binary
+
+hexdump -e '"%02x\n"' -n 1 /dev/urandom

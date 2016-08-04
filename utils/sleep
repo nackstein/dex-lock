@@ -1,5 +1,9 @@
 #!/usr/bin/perl
 
+# this is a wrapper for platforms whose sleep binary strictly
+# follow POSIX standard and support only integer parameter.
+# HP-UX is one of those OS, put the utils directory in your PATH
+
 use strict;
 use warnings;
 use Time::HiRes qw(nanosleep);
