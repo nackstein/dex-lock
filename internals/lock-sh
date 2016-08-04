@@ -1,30 +1,29 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
 export LANG=C
 
 quit () {
-   rm temp/activity_lockdir_sh/$$ > /dev/null 2>&1 < /dev/null && \
-   rmdir temp/activity_lockdir_sh > /dev/null 2>&1 < /dev/null && \
-   mkdir temp/activity_lockdir_un > /dev/null 2>&1 < /dev/null
+   rm temp/lockdir_sh/$$ > /dev/null 2>&1 < /dev/null && \
+   rmdir temp/lockdir_sh > /dev/null 2>&1 < /dev/null && \
+   mkdir temp/lockdir_un > /dev/null 2>&1 < /dev/null
    exit $1
 }
 
 trap 'quit 0' HUP INT TERM
 
 until
-   mv temp/activity_lockdir_un temp/activity_lockdir_sh > /dev/null 2>&1 < /dev/null
-   ( echo "" > temp/activity_lockdir_sh/$$ ) > /dev/null 2>&1 < /dev/null
+   mv temp/lockdir_un temp/lockdir_sh > /dev/null 2>&1 < /dev/null
+   ( echo "" > temp/lockdir_sh/$$ ) > /dev/null 2>&1 < /dev/null
 do
    if [ -n "$lock_timeout" ] ; then
       lock_timeout=$((lock_timeout-1))
       [ "$lock_timeout" -lt 0 ] && exit 1
    fi
 
-   #on HP-UX decimal seconds is not supported. use the perl implementation
-   sleep 0.1 2> /dev/null || utils/sleep.pl 0.1 2> /dev/null
+   sleep 0.1 2> /dev/null
 done
 
 "$@"

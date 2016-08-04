@@ -1,31 +1,31 @@
-#!/bin/sh
+#!/bin/dash
 
-#Copyright (c) 2014 Luigi Tarenga <luigi.tarenga@gmail.com>
-#Distributed under the terms of a MIT license.
+# Copyright (c) 2014 - 2016 Luigi Tarenga <luigi.tarenga@gmail.com>
+# Distributed under the terms of a MIT license.
 
-# input:  holder lock_name term value
-# return: success holder term value
+# input:  holder lock_name term seq
+# return: success holder term seq
 
 holder=$1
 lname=$2
 term=$3
-value=$4
+seq=$4
 success=false
 
 if [ -f state/${lname} ] ; then
-   read s_holder s_term s_value < state/${lname}
+   read s_holder s_term s_seq < state/${lname}
 else
    s_term=0
-   s_value=0
+   s_seq=0
 fi
 
-if [ "$term" -gt "$s_term" -a "$value" -ge "$s_value" ] ; then
+if [ "$term" -gt "$s_term" -a "$seq" -ge "$s_seq" ] ; then
    #give client a vote
    s_holder=$holder
    s_term=$term
-   s_value=$value
+   s_seq=$seq
    success=true
-   echo $s_holder $s_term $s_value > state/${lname}
+   echo $s_holder $s_term $s_seq > state/${lname}
 fi
 
-echo $success $s_holder $s_term $s_value
+echo $success $s_holder $s_term $s_seq
