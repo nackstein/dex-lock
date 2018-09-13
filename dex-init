@@ -16,6 +16,14 @@ hostname=${hostname%%.*}
 read lock_servers < conf/lock_servers
 i=0; for h in $lock_servers ; do i=$((i+1)); done
 majority=$((i/2+1))
+
+if [ ! -d temp ] ; then
+  mkdir temp
+fi
+if [ ! -d state ] ; then
+  mkdir state
+fi
+
 echo $hostname $majority > temp/${lname}_params
 echo $((timeout+timeout2))  > temp/${lname}_counter
 echo "-invalid-" 0 0 "-invalid-" > temp/${lname}_htsp

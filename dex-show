@@ -12,7 +12,7 @@ cd ${0%/*}
 lname=${1:-default}
 
 read lock_servers < conf/lock_servers
-read rpath        < conf/remote_path
+rpath=$(pwd)
 read sshopt       < conf/sshopt
 
 if [ -f temp/${lname}_counter ] ; then

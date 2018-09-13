@@ -17,7 +17,7 @@ step=${4:-1}
 priority=${4:-1}
 
 read lock_servers < conf/lock_servers
-read rpath        < conf/remote_path
+rpath=$(pwd)
 read sshopt       < conf/sshopt
 read counter      < temp/${lname}_counter
 read holder term seq previous < temp/${lname}_htsp
